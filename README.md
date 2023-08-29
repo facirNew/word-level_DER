@@ -1,13 +1,13 @@
 # word-level_DER
 Script for calculate word-level diarization error rate (word-level DER)
 
-input files:
-1. reference .txt file in format "speaker №: text"
-2. recognized .txt file in format "speaker №: text"
+Input files:
+1. Reference .txt file in format "speaker <spk_number>: text"
+2. Recognized .txt file in format "speaker <spk_number>: text"
 
-output file (-r optional for analise)
-1 .csv file in format:
-reference speaker | text | words count | result speaker | text | error words
+Output file (-r optional for analise)
+.csv file in format:
+Reference speaker | Text | Words count | Result speaker | Text | Error words
 
 In console output result in format:
 Word in ref text: number of words
