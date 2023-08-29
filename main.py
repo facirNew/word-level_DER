@@ -1,13 +1,12 @@
 """
 Script for calculate word-level diarization error rate (word-level DER)
 
-input files:
+Input files:
 1. reference .txt file in format "speaker №: text"
 2. recognized .txt file in format "speaker №: text"
 
-output file (-r optional for analise)
-1 .csv file in format:
-reference speaker | text | words count | result speaker | text | error words
+Output file (-r optional for analise) .csv file in format:
+Reference speaker | Text | Words count | Result speaker | Text | Error words
 
 In console output result in format:
 Word in ref text: number of words
@@ -21,56 +20,48 @@ import argparse
 import re
 
 
-def cleaning(file: str) -> str:
-    """
-    bringing files back to normal
-    :param file: text for cleaning
-    :return: file in format 'Speaker No.: text'
-    """
-    file_list = file.split(sep='\n')
-    for elem in file_list:
-        if elem.startswith(('0:', '1:', '2:', '3:', '4:', '5:', '6:', '7:', '8:', '9:')):
-            file_list.remove(elem)
+def bring_to_normal(text: str) -> list[str]:
+    """ Bringing text into view: 'Speaker <spk_num>: text' """
 
-    file_str = ' '.join(file_list)
-    file_list = re.split('Спикер|Speaker', file_str)
-    file_list.remove('')
-    for ind, elem in enumerate(file_list):
-        tmp = elem.split(':')
-        file_list[ind] = 'Speaker ' + ': '.join(tmp)
-        file_list[ind] = file_list[ind].replace('[', ' ').\
-            replace('.', ' ').replace(',', ' ').replace('?', ' ').\
-            replace('!', ' ').replace('-', ' ').replace(']', ' ').\
-            replace('   ', ' ').replace('  ', ' ')
-    file_str = '\n'.join(file_list)
-    return file_str
+    text_list = text.split(sep='\n')
+    for string in text_list:
+        if string.startswith(('0:', '1:', '2:', '3:', '4:', '5:', '6:', '7:', '8:', '9:')):
+            text_list.remove(string)
+
+    text_str = ' '.join(text_list)
+    text_list = re.split('Спикер|Speaker', text_str)
+    text_list.remove('')
+    for ind, string in enumerate(text_list):
+        string_split = string.split(':')
+        text_list[ind] = 'Speaker ' + ': '.join(string_split)
+        for symbol in ('[', '.', ',', '?', '!', '-', ']', '   ', '  '):
+            text_list[ind] = text_list[ind].replace(symbol, ' ')
+    return text_list
 
 
-def delete_spk(text: str) -> list[str]:
+def remove_spk(text: list[str]) -> list[str]:
     """
     remove speakers
-    :param text: text in format 'Speaker №: text'
-    :return: list of words from text without word 'Speaker' and numbers
+    :param text: list of strings in format 'Speaker <spk_num>: text'
+    :return: list of strings from text without 'Speaker <spk_num>'
     """
     res = []
-    for elem in text.split('\n'):
-        res += elem.split(':')[1].strip().split()
+    for string in text:
+        res += string.split(':')[1].strip().split()
     return res
 
 
-def compare_spk_word(text: str) -> list[list[str]]:
+def matching_spk_word(text: list[str]) -> list[list[str]]:
     """
-    definition of speaker-word pairs
-    :param text: text in format 'Speaker №: text'
-    :return: list with pair [speaker, word]
+    matching of speaker-word pairs
+    :param text: list of text strings in format 'Speaker <spk_num>: text'
+    :return: list with pair [<spk_num>, word]
     """
     res = []
-    text = text.split('\n')
-    for elem in text:
-        temp = elem.split(':')
-
-        for word in temp[1].split():
-            res.append([temp[0].split()[1], word])
+    for string in text:
+        split_string = string.split(':')
+        for word in split_string[1].split():
+            res.append([split_string[0].split()[1], word])
     return res
 
 
@@ -91,6 +82,7 @@ def diff_word_ind(text_1: list, text_2: list) -> list:
     for element in indexes_diff:
         tmp = list(range(*element[0]))
         tmp_1 = list(range(*element[1]))
+
         if len(tmp) < len(tmp_1):
             for idx, elem in enumerate(tmp):
                 indexes_res.append([elem, tmp_1[idx]])
@@ -100,39 +92,39 @@ def diff_word_ind(text_1: list, text_2: list) -> list:
     return indexes_res
 
 
-def compare(orig: str, error: str) -> tuple[str, str]:
+def match(reference: list[str], recognize: list[str]) -> tuple[str, str]:
     """
     Compare of source files
-    :param orig: reference text
-    :param error: recognize text
-    :return res_orig: reference text in format 'Speaker №, text, number of words of this speaker'
-    :return res_error: recognize text in format ' Speaker №, text, number of words if the
+    :param reference: list of strings from reference text
+    :param recognize: list of strings from recognize text
+    :return res_reference: reference text in format 'Speaker <spk_num>, text, number of words of this speaker'
+    :return res_recognize: recognize text in format ' Speaker <spk_num>, text, number of words if the
     speaker differs from the reference'
     """
 
-    orig_spk_word = compare_spk_word(orig)
-    error_spk_word = compare_spk_word(error)
-    indexes_res = diff_word_ind(delete_spk(orig), delete_spk(error))
+    reference_spk_word = matching_spk_word(reference)
+    recognize_spk_word = matching_spk_word(recognize)
+    indexes_res = diff_word_ind(remove_spk(reference), remove_spk(recognize))
 
     # matching speaker-word pairs in the original file and the recognized one
-    res_orig = 'ref speaker:text:words count'
-    res_error = 'result speaker:text:error words'
-    speaker_old_orig = 0
-    speaker_old_error = 0
+    res_reference = 'ref speaker:text:words count'
+    res_recognize = 'result speaker:text:error words'
+    speaker_old_reference = 0
+    speaker_old_recognize = 0
     for element in indexes_res:
-        speaker_new_orig = orig_spk_word[element[0]][0]
-        speaker_new_error = error_spk_word[element[1]][0]
-        if speaker_old_orig != speaker_new_orig:
-            res_orig += f'\nSpeaker {orig_spk_word[element[0]][0]}:'
-            res_error += f'\nSpeaker {error_spk_word[element[1]][0]}:'
-            speaker_old_orig = speaker_new_orig
-        if speaker_old_error != speaker_new_error:
-            res_error += f'\nSpeaker {error_spk_word[element[1]][0]}:'
-            res_orig += f'\nSpeaker {orig_spk_word[element[0]][0]}:'
-            speaker_old_error = speaker_new_error
-        res_orig += f'{orig_spk_word[element[0]][1]} '
-        res_error += f'{error_spk_word[element[1]][1]} '
-    return res_orig, res_error
+        speaker_new_reference = reference_spk_word[element[0]][0]
+        speaker_new_recognize = recognize_spk_word[element[1]][0]
+        if speaker_old_reference != speaker_new_reference:
+            res_reference += f'\nSpeaker {reference_spk_word[element[0]][0]}:'
+            res_recognize += f'\nSpeaker {recognize_spk_word[element[1]][0]}:'
+            speaker_old_reference = speaker_new_reference
+        if speaker_old_recognize != speaker_new_recognize:
+            res_recognize += f'\nSpeaker {recognize_spk_word[element[1]][0]}:'
+            res_reference += f'\nSpeaker {reference_spk_word[element[0]][0]}:'
+            speaker_old_recognize = speaker_new_recognize
+        res_reference += f'{reference_spk_word[element[0]][1]} '
+        res_recognize += f'{recognize_spk_word[element[1]][1]} '
+    return res_reference, res_recognize
 
 
 def write(res_file: list, res_name: str) -> None:
@@ -147,25 +139,25 @@ def write(res_file: list, res_name: str) -> None:
             writer.writerow(elem)
 
 
-def result_count(orig: str, error: str) -> list:
+def result_count(reference: str, recognize: str) -> list:
     """
     Create output result
-    :param orig: reference text in format 'Speaker №, text, number of words of this speaker'
-    :param error: recognize text in format ' Speaker №, text, number of words if the speaker differs
+    :param reference: reference text in format 'Speaker <spk_num>, text, number of words of this speaker'
+    :param recognize: recognize text in format ' Speaker <spk_num>, text, number of words if the speaker differs
     from the reference'
     :return: list with result table strings
     """
-    orig = orig.split('\n')
-    error = error.split('\n')
+    reference = reference.split('\n')
+    recognize = recognize.split('\n')
     result = []
     total_word = 0
     spk_error_word = 0
 
-    for ind, elem in enumerate(orig):
+    for ind, elem in enumerate(reference):
         col_3 = ''
         col_6 = ''
         col_1, *col_2 = elem.split(':')
-        col_4, *col_5 = error[ind].split(':')
+        col_4, *col_5 = recognize[ind].split(':')
         if col_1 != col_4 and ind != 0:
             col_6 = f'{len(col_5[0].split())}'
             spk_error_word += int(col_6)
@@ -185,13 +177,9 @@ def result_count(orig: str, error: str) -> list:
 
 
 def main():
-    """
-    orig_file: reference input file
-    recognised_file: stt-recognise input file
-    result_file: output result file
-    """
+
     parser = argparse.ArgumentParser(
-        description='compare reference and STT files for analise speaker error rate'
+        description='match reference and STT files for analise speaker error rate'
     )
     parser.add_argument('reference', type=str, help='Input reference file')
     parser.add_argument('recognized', type=str, help='Input recognized file')
@@ -201,15 +189,12 @@ def main():
                         help='Output result file, default: None')
     args = parser.parse_args()
 
-    # reading files
     with open(args.reference, 'r', encoding='utf-8') as orig:
-        orig_str = orig.read()
+        reference_text = bring_to_normal(orig.read())
     with open(args.recognized, 'r', encoding='utf-8') as recognized:
-        recognized_str = recognized.read()
-    orig_str = cleaning(orig_str)
-    recognized_str = cleaning(recognized_str)
-    res_orig, res_error = compare(orig_str, recognized_str)
-    # compare(orig_str, recognized_str)
+        recognized_text = bring_to_normal(recognized.read())
+
+    res_orig, res_error = match(reference_text, recognized_text)
     res = result_count(res_orig, res_error)
     if args.result:
         write(res, args.result)
