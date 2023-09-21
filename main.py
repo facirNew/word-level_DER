@@ -30,7 +30,8 @@ def bring_to_normal(text: str) -> list[str]:
 
     text_str = ' '.join(text_list)
     text_list = re.split('Спикер|Speaker', text_str)
-    text_list.remove('')
+    if '' in text_list:
+        text_list.remove('')
     for ind, string in enumerate(text_list):
         string_split = string.split(':')
         text_list[ind] = 'Speaker ' + ': '.join(string_split)
@@ -59,9 +60,10 @@ def matching_spk_word(text: list[str]) -> list[list[str]]:
     """
     res = []
     for string in text:
-        split_string = string.split(':')
-        for word in split_string[1].split():
-            res.append([split_string[0].split()[1], word])
+        if ':' in string:
+            split_string = string.split(':')
+            for word in split_string[1].split():
+                res.append([split_string[0].split()[1], word])
     return res
 
 
@@ -127,7 +129,7 @@ def match(reference: list[str], recognize: list[str]) -> tuple[str, str]:
     return res_reference, res_recognize
 
 
-def write(res_file: list, res_name: str) -> None:
+def write_result_in_file(res_file: list, res_name: str) -> None:
     """
     Write output file
     :param res_file: list with result table strings
@@ -179,11 +181,11 @@ def result_count(reference: str, recognize: str) -> list:
 def main():
 
     parser = argparse.ArgumentParser(
-        description='match reference and STT files for analise speaker error rate'
+        description='match reference and recognise files for analise speaker error rate'
     )
     parser.add_argument('reference', type=str, help='Input reference file')
     parser.add_argument('recognized', type=str, help='Input recognized file')
-    parser.add_argument('-r', '--result',
+    parser.add_argument('-o', '--output',
                         type=str,
                         default=None,
                         help='Output result file, default: None')
@@ -195,9 +197,9 @@ def main():
         recognized_text = bring_to_normal(recognized.read())
 
     res_orig, res_error = match(reference_text, recognized_text)
-    res = result_count(res_orig, res_error)
+    result_table = result_count(res_orig, res_error)
     if args.result:
-        write(res, args.result)
+        write_result_in_file(result_table, args.output)
 
 
 if __name__ == '__main__':
